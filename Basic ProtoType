@@ -1,0 +1,1244 @@
+import React, { useState, useEffect, createContext, useContext } from 'react';
+import { TrendingUp, ShoppingCart, Heart, User, LogIn, Home, Settings, Bell, CheckCircle, XCircle, MessageSquare, Star, Filter, Search, Calendar, MapPin, CreditCard, PlusCircle, MinusCircle, Trash2, Edit3, Eye, Phone, Mail } from 'lucide-react';
+
+// Mock Data
+const mockServices = [
+  { id: 'theme1', name: 'Enchanted Forest Theme', type: 'Theme', price: 1200, description: 'Transform your venue into a magical forest with fairy lights, lush greenery, and mystical props. Perfect for weddings and fantasy-themed parties.', image: 'https://placehold.co/600x400/A9D2B8/333333?text=Enchanted+Forest', rating: 4.8, category: 'Wedding', tags: ['fantasy', 'nature', 'romantic'] },
+  { id: 'stage1', name: 'Royal Wedding Stage', type: 'Stage', price: 800, description: 'A grand and opulent stage setup with elegant drapes, crystal chandeliers, and a majestic backdrop. Ideal for luxurious wedding ceremonies.', image: 'https://placehold.co/600x400/D8BFD8/333333?text=Royal+Stage', rating: 4.9, category: 'Wedding', tags: ['luxury', 'grand', 'traditional'] },
+  { id: 'item1', name: 'Vintage Lantern Set', type: 'Item', price: 150, description: 'Set of 10 antique-style lanterns to add a rustic charm to your event decor. Battery-operated LED candles included.', image: 'https://placehold.co/600x400/F5DEB3/333333?text=Vintage+Lanterns', rating: 4.5, category: 'Props', tags: ['rustic', 'vintage', 'lighting'] },
+  { id: 'theme2', name: 'Modern Minimalist Theme', type: 'Theme', price: 950, description: 'Clean lines, geometric shapes, and a monochromatic color palette for a sophisticated and contemporary event.', image: 'https://placehold.co/600x400/E0E0E0/333333?text=Modern+Minimalist', rating: 4.7, category: 'Corporate', tags: ['modern', 'sleek', 'corporate'] },
+  { id: 'stage2', name: 'Bohemian Chic Stage', type: 'Stage', price: 650, description: 'A relaxed and artistic stage with macramé backdrops, pampas grass, and cozy floor seating. Perfect for intimate gatherings.', image: 'https://placehold.co/600x400/FFE4B5/333333?text=Boho+Chic+Stage', rating: 4.6, category: 'Party', tags: ['bohemian', 'casual', 'artistic'] },
+  { id: 'item2', name: 'Floral Archway', type: 'Item', price: 300, description: 'Beautiful archway adorned with seasonal flowers. Customizable colors and flower types.', image: 'https://placehold.co/600x400/FFC0CB/333333?text=Floral+Archway', rating: 4.8, category: 'Props', tags: ['floral', 'romantic', 'entrance'] },
+];
+
+const mockOrders = [
+  { id: 'order1', customerName: 'Alice Wonderland', customerId: 'cust1', items: [{ ...mockServices[0], quantity: 1 }], total: 1200, date: '2025-07-15', venue: '123 Fairy Lane, DreamCity', status: 'Pending', customerContact: 'alice@example.com', customerPhone: '555-1234' },
+  { id: 'order2', customerName: 'Bob The Builder', customerId: 'cust2', items: [{ ...mockServices[2], quantity: 2 }, { ...mockServices[5], quantity: 1 }], total: 600, date: '2025-08-01', venue: '456 Construction Ave, BuildVille', status: 'Pending', customerContact: 'bob@example.com', customerPhone: '555-5678' },
+];
+
+// Context for Auth, Cart, Favorites
+const AppContext = createContext();
+
+const AppProvider = ({ children }) => {
+  const [user, setUser] = useState(null); // null, { email: '...', role: 'customer'/'admin' }
+  const [cart, setCart] = useState([]);
+  const [favorites, setFavorites] = useState([]);
+  const [adminNotifications, setAdminNotifications] = useState([]);
+
+  // Simulate fetching initial data or from localStorage
+  useEffect(() => {
+    // const storedUser = localStorage.getItem('user');
+    // if (storedUser) setUser(JSON.parse(storedUser));
+    // Simulate admin notifications
+    if (user && user.role === 'admin') {
+        mockOrders.filter(o => o.status === 'Pending').forEach((order, index) => {
+            setTimeout(() => {
+                setAdminNotifications(prev => [...prev, { id: `notif${order.id}`, message: `New order #${order.id} from ${order.customerName} for $${order.total}.`, type: 'new_order', orderId: order.id, read: false }]);
+            }, (index + 1) * 3000); // Stagger notifications
+        });
+    }
+  }, [user]);
+
+
+  const login = (email, role) => {
+    const newUser = { email, role };
+    setUser(newUser);
+    // localStorage.setItem('user', JSON.stringify(newUser));
+    if (role === 'admin') {
+        // Simulate initial pending orders for admin
+        mockOrders.filter(o => o.status === 'Pending').forEach((order, index) => {
+            setTimeout(() => {
+                setAdminNotifications(prev => [...prev, { id: `notif${order.id}`, message: `New order #${order.id} from ${order.customerName} for $${order.total}.`, type: 'new_order', orderId: order.id, read: false }]);
+            }, (index + 1) * 1000);
+        });
+    }
+  };
+  const logout = () => {
+    setUser(null);
+    // localStorage.removeItem('user');
+    setCart([]);
+    setFavorites([]);
+    setAdminNotifications([]);
+  };
+
+  const addToCart = (item) => {
+    setCart(prevCart => {
+      const existingItem = prevCart.find(cartItem => cartItem.id === item.id);
+      if (existingItem) {
+        return prevCart.map(cartItem =>
+          cartItem.id === item.id ? { ...cartItem, quantity: cartItem.quantity + 1 } : cartItem
+        );
+      }
+      return [...prevCart, { ...item, quantity: 1 }];
+    });
+  };
+
+  const removeFromCart = (itemId) => {
+    setCart(prevCart => prevCart.filter(item => item.id !== itemId));
+  };
+
+  const updateQuantity = (itemId, quantity) => {
+    if (quantity <= 0) {
+      removeFromCart(itemId);
+    } else {
+      setCart(prevCart =>
+        prevCart.map(item => (item.id === itemId ? { ...item, quantity } : item))
+      );
+    }
+  };
+
+  const toggleFavorite = (item) => {
+    setFavorites(prevFavorites => {
+      if (prevFavorites.find(fav => fav.id === item.id)) {
+        return prevFavorites.filter(fav => fav.id !== item.id);
+      }
+      return [...prevFavorites, item];
+    });
+  };
+
+  const isFavorite = (itemId) => favorites.some(fav => fav.id === itemId);
+
+  const placeOrder = (orderDetails) => {
+    // In a real app, this would send data to the backend
+    console.log("Placing order:", orderDetails);
+    const newOrder = { 
+        id: `order${Date.now()}`, 
+        customerName: user ? user.email.split('@')[0] : 'Guest', 
+        customerId: user ? user.email : 'guest',
+        items: [...cart], 
+        total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0), 
+        date: orderDetails.eventDate, 
+        venue: orderDetails.venue, 
+        status: 'Pending',
+        customerContact: orderDetails.contactEmail,
+        customerPhone: orderDetails.contactPhone
+    };
+    
+    // Simulate admin notification (in a real app, this would be via SignalR)
+    if (user && user.role !== 'admin') { // Customer placing order
+        // This is a client-side simulation. Ideally, the backend sends this to admins.
+        // For demo, we'll add to a global list if an admin is hypothetically logged in elsewhere.
+        // Or, if an admin logs in later, they'd see this new order.
+        mockOrders.push(newOrder); // Add to the global mock orders list
+        console.log("Simulating notification for admin for new order:", newOrder.id);
+    }
+    setCart([]); // Clear cart after order
+    return newOrder;
+  };
+  
+  const markNotificationRead = (notificationId) => {
+    setAdminNotifications(prev => prev.map(n => n.id === notificationId ? {...n, read: true} : n));
+  };
+
+  return (
+    <AppContext.Provider value={{ user, login, logout, cart, addToCart, removeFromCart, updateQuantity, favorites, toggleFavorite, isFavorite, placeOrder, adminNotifications, markNotificationRead, mockServices, mockOrders }}>
+      {children}
+    </AppContext.Provider>
+  );
+};
+
+// Components
+const Navbar = ({ setCurrentPage }) => {
+  const { user, logout, cart, favorites, adminNotifications } = useContext(AppContext);
+  const unreadNotifications = adminNotifications.filter(n => !n.read).length;
+
+  return (
+    <nav className="bg-gradient-to-r from-purple-600 to-pink-500 text-white shadow-lg sticky top-0 z-50">
+      <div className="container mx-auto px-6 py-3 flex justify-between items-center">
+        <div className="text-2xl font-bold tracking-tight cursor-pointer" onClick={() => setCurrentPage('home')}>
+          EleganceEvents
+        </div>
+        <div className="hidden md:flex space-x-4 items-center">
+          <NavItem Icon={Home} label="Home" onClick={() => setCurrentPage('home')} />
+          <NavItem Icon={TrendingUp} label="Services" onClick={() => setCurrentPage('services')} />
+          {user && user.role === 'customer' && (
+            <>
+              <NavItem Icon={Heart} label={`Favorites (${favorites.length})`} onClick={() => setCurrentPage('favorites')} />
+              <NavItem Icon={ShoppingCart} label={`Cart (${cart.reduce((sum, item) => sum + item.quantity, 0)})`} onClick={() => setCurrentPage('cart')} />
+            </>
+          )}
+        </div>
+        <div className="flex items-center space-x-3">
+          {user ? (
+            <>
+              {user.role === 'admin' && (
+                <button onClick={() => setCurrentPage('adminDashboard')} className="relative p-2 rounded-full hover:bg-purple-700 transition-colors">
+                  <Bell size={20} />
+                  {unreadNotifications > 0 && (
+                    <span className="absolute top-0 right-0 block h-4 w-4 rounded-full ring-2 ring-white bg-red-500 text-xs flex items-center justify-center">{unreadNotifications}</span>
+                  )}
+                </button>
+              )}
+              <span className="text-sm hidden sm:inline">Hi, {user.email.split('@')[0]}!</span>
+              <button onClick={() => setCurrentPage(user.role === 'admin' ? 'adminDashboard' : 'customerDashboard')} className="p-2 rounded-full hover:bg-purple-700 transition-colors">
+                <User size={20} />
+              </button>
+              <button onClick={() => { logout(); setCurrentPage('login'); }} className="bg-pink-600 hover:bg-pink-700 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                Logout
+              </button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setCurrentPage('login')} className="hover:text-pink-200 transition-colors px-3 py-2 text-sm font-medium">
+                Login
+              </button>
+              <button onClick={() => setCurrentPage('register')} className="bg-white text-purple-600 hover:bg-gray-100 px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                Register
+              </button>
+            </>
+          )}
+          <button className="md:hidden p-2 rounded-md hover:bg-purple-700" onClick={() => {/* Implement mobile menu toggle */}}>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </nav>
+  );
+};
+
+const NavItem = ({ Icon, label, onClick }) => (
+  <button onClick={onClick} className="flex items-center space-x-1 hover:text-pink-200 transition-colors px-3 py-2 rounded-md text-sm font-medium">
+    <Icon size={18} />
+    <span>{label}</span>
+  </button>
+);
+
+const Footer = () => (
+  <footer className="bg-gray-800 text-gray-300 py-12 mt-auto">
+    <div className="container mx-auto px-6 text-center">
+      <p>&copy; {new Date().getFullYear()} EleganceEvents. All rights reserved.</p>
+      <p className="text-sm mt-2">Crafting unforgettable moments, one event at a time.</p>
+      <div className="flex justify-center space-x-4 mt-4">
+        {/* Social media icons placeholder */}
+        <a href="#" className="hover:text-pink-400 transition-colors">Facebook</a>
+        <a href="#" className="hover:text-pink-400 transition-colors">Instagram</a>
+        <a href="#" className="hover:text-pink-400 transition-colors">Twitter</a>
+      </div>
+    </div>
+  </footer>
+);
+
+const HomePage = ({ setCurrentPage }) => (
+  <div className="min-h-screen bg-gray-50">
+    {/* Hero Section */}
+    <section className="relative bg-gradient-to-br from-purple-600 to-pink-500 text-white py-20 md:py-32">
+      <div className="absolute inset-0 bg-black opacity-30"></div>
+      <div className="container mx-auto px-6 text-center relative z-10">
+        <h1 className="text-4xl md:text-6xl font-bold mb-6 leading-tight">Crafting Your Dream Events</h1>
+        <p className="text-lg md:text-xl mb-10 max-w-2xl mx-auto">From intimate gatherings to grand celebrations, we provide exquisite decoration and planning services to make your special moments unforgettable.</p>
+        <button
+          onClick={() => setCurrentPage('services')}
+          className="bg-white text-purple-700 font-semibold py-3 px-8 rounded-lg shadow-lg hover:bg-gray-100 transition-transform transform hover:scale-105 text-lg"
+        >
+          Explore Our Services
+        </button>
+      </div>
+    </section>
+
+    {/* Featured Services Section */}
+    <section className="py-16 bg-white">
+      <div className="container mx-auto px-6">
+        <h2 className="text-3xl font-bold text-center text-gray-800 mb-12">Featured Collections</h2>
+        <div className="grid md:grid-cols-3 gap-8">
+          <FeatureCard Icon={Star} title="Wedding Wonders" description="Elegant themes and stages for your magical day." image="https://placehold.co/600x400/FFF0F5/333333?text=Weddings" onClick={() => setCurrentPage('services', { filter: 'Wedding' })} />
+          <FeatureCard Icon={TrendingUp} title="Corporate Chic" description="Sophisticated setups for professional events." image="https://placehold.co/600x400/ADD8E6/333333?text=Corporate" onClick={() => setCurrentPage('services', { filter: 'Corporate' })} />
+          <FeatureCard Icon={Home} title="Party Perfect" description="Fun and vibrant decorations for all celebrations." image="https://placehold.co/600x400/FFFFE0/333333?text=Parties" onClick={() => setCurrentPage('services', { filter: 'Party' })} />
+        </div>
+      </div>
+    </section>
+
+    {/* How It Works Section */}
+    <section className="py-16 bg-gray-100">
+      <div className="container mx-auto px-6">
+        <h2 className="text-3xl font-bold text-center text-gray-800 mb-12">Simple Steps to Your Perfect Event</h2>
+        <div className="grid md:grid-cols-3 gap-8 text-center">
+          <StepCard number="1" title="Browse & Select" description="Explore our diverse range of themes, stages, and decor items." Icon={Search}/>
+          <StepCard number="2" title="Customize & Book" description="Add to cart, specify your needs, and place your order securely." Icon={ShoppingCart}/>
+          <StepCard number="3" title="Relax & Enjoy" description="Our team handles the setup, letting you enjoy your flawless event." Icon={CheckCircle}/>
+        </div>
+      </div>
+    </section>
+  </div>
+);
+
+const FeatureCard = ({ Icon, title, description, image, onClick }) => (
+  <div className="bg-white rounded-xl shadow-xl overflow-hidden transform hover:scale-105 transition-transform duration-300 cursor-pointer" onClick={onClick}>
+    <img src={image || `https://placehold.co/600x400/CCCCCC/FFFFFF?text=${title.replace(/\s/g,'+')}`} alt={title} className="w-full h-56 object-cover" onError={(e) => e.target.src = `https://placehold.co/600x400/CCCCCC/FFFFFF?text=Image+Error`} />
+    <div className="p-6">
+      <div className="flex items-center mb-3">
+        <Icon className="text-purple-600 mr-3" size={28} />
+        <h3 className="text-xl font-semibold text-gray-800">{title}</h3>
+      </div>
+      <p className="text-gray-600 text-sm">{description}</p>
+    </div>
+  </div>
+);
+
+const StepCard = ({ number, title, description, Icon }) => (
+    <div className="bg-white p-8 rounded-lg shadow-lg">
+        <div className="flex items-center justify-center mb-4">
+            <div className="bg-purple-500 text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold mr-4">
+                {number}
+            </div>
+            <Icon className="text-purple-500" size={32} />
+        </div>
+        <h3 className="text-xl font-semibold text-gray-700 mb-2">{title}</h3>
+        <p className="text-gray-600">{description}</p>
+    </div>
+);
+
+
+const ServicesPage = ({ setCurrentPage, initialFilter }) => {
+  const { mockServices, addToCart, toggleFavorite, isFavorite } = useContext(AppContext);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState(initialFilter || 'All');
+  const [filteredServices, setFilteredServices] = useState(mockServices);
+
+  useEffect(() => {
+    let services = mockServices;
+    if (categoryFilter !== 'All') {
+      services = services.filter(service => service.category === categoryFilter);
+    }
+    if (searchTerm) {
+      services = services.filter(service =>
+        service.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        service.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (service.tags && service.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())))
+      );
+    }
+    setFilteredServices(services);
+  }, [searchTerm, categoryFilter, mockServices]);
+  
+  useEffect(() => { // Handle initial filter from HomePage
+    if (initialFilter) {
+      setCategoryFilter(initialFilter);
+    }
+  }, [initialFilter]);
+
+  const categories = ['All', ...new Set(mockServices.map(s => s.category))];
+
+  return (
+    <div className="container mx-auto px-6 py-8">
+      <h1 className="text-4xl font-bold text-gray-800 mb-4">Our Services</h1>
+      <p className="text-lg text-gray-600 mb-8">Discover the perfect decorations and themes for your next event.</p>
+
+      {/* Filters and Search */}
+      <div className="mb-8 p-6 bg-white rounded-lg shadow-md flex flex-col md:flex-row gap-4 items-center">
+        <div className="relative flex-grow w-full md:w-auto">
+          <input
+            type="text"
+            placeholder="Search services, themes, items..."
+            className="w-full p-3 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+        </div>
+        <div className="flex-shrink-0">
+          <label htmlFor="category-filter" className="sr-only">Filter by category</label>
+          <select
+            id="category-filter"
+            className="p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-white w-full md:w-auto"
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+          >
+            {categories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {filteredServices.length === 0 ? (
+        <p className="text-center text-gray-500 text-xl py-10">No services found matching your criteria. Try adjusting your search or filters.</p>
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {filteredServices.map(service => (
+            <ServiceCard key={service.id} service={service} setCurrentPage={setCurrentPage} addToCart={addToCart} toggleFavorite={toggleFavorite} isFavorite={isFavorite(service.id)} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ServiceCard = ({ service, setCurrentPage, addToCart, toggleFavorite, isFavorite }) => (
+  <div className="bg-white rounded-xl shadow-lg overflow-hidden flex flex-col transition-all duration-300 hover:shadow-2xl">
+    <img 
+        src={service.image} 
+        alt={service.name} 
+        className="w-full h-56 object-cover cursor-pointer" 
+        onClick={() => setCurrentPage('itemDetail', { itemId: service.id })}
+        onError={(e) => e.target.src = `https://placehold.co/600x400/CCCCCC/FFFFFF?text=Image+Not+Found`}
+    />
+    <div className="p-6 flex flex-col flex-grow">
+      <div className="flex justify-between items-start mb-2">
+        <h3 
+            className="text-xl font-semibold text-purple-700 hover:text-purple-900 cursor-pointer"
+            onClick={() => setCurrentPage('itemDetail', { itemId: service.id })}
+        >
+            {service.name}
+        </h3>
+        <button onClick={() => toggleFavorite(service)} className={`p-2 rounded-full transition-colors ${isFavorite ? 'text-pink-500 bg-pink-100' : 'text-gray-400 hover:text-pink-500 hover:bg-pink-50'}`}>
+          <Heart size={20} fill={isFavorite ? 'currentColor' : 'none'} />
+        </button>
+      </div>
+      <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">{service.type} - {service.category}</p>
+      <p className="text-gray-600 text-sm mb-3 flex-grow">{service.description.substring(0, 100)}...</p>
+      <div className="flex items-center mb-3">
+        {[...Array(5)].map((_, i) => (
+          <Star key={i} size={16} className={i < Math.round(service.rating) ? 'text-yellow-400' : 'text-gray-300'} fill="currentColor" />
+        ))}
+        <span className="ml-2 text-sm text-gray-500">{service.rating}</span>
+      </div>
+      <div className="mt-auto">
+        <div className="flex justify-between items-center mb-4">
+            <p className="text-2xl font-bold text-gray-800">${service.price.toFixed(2)}</p>
+        </div>
+        <button
+          onClick={() => addToCart(service)}
+          className="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white py-2.5 px-4 rounded-lg font-semibold hover:opacity-90 transition-opacity flex items-center justify-center space-x-2"
+        >
+          <ShoppingCart size={18} />
+          <span>Add to Cart</span>
+        </button>
+      </div>
+    </div>
+  </div>
+);
+
+const ItemDetailPage = ({ setCurrentPage, itemId }) => {
+  const { mockServices, addToCart, toggleFavorite, isFavorite } = useContext(AppContext);
+  const item = mockServices.find(s => s.id === itemId);
+
+  if (!item) return <div className="container mx-auto px-6 py-8 text-center text-red-500">Item not found!</div>;
+
+  return (
+    <div className="container mx-auto px-6 py-12">
+      <button onClick={() => setCurrentPage('services')} className="mb-8 text-purple-600 hover:text-purple-800 flex items-center space-x-2">
+        <ChevronLeft size={20}/> <span>Back to Services</span>
+      </button>
+      <div className="bg-white rounded-xl shadow-xl overflow-hidden md:flex">
+        <div className="md:w-1/2">
+          <img src={item.image} alt={item.name} className="w-full h-96 object-cover" onError={(e) => e.target.src = `https://placehold.co/800x600/CCCCCC/FFFFFF?text=Image+Error`} />
+        </div>
+        <div className="md:w-1/2 p-8 md:p-12 flex flex-col justify-between">
+          <div>
+            <div className="flex justify-between items-start mb-3">
+                <h1 className="text-4xl font-bold text-gray-800">{item.name}</h1>
+                <button onClick={() => toggleFavorite(item)} className={`p-3 rounded-full transition-colors ${isFavorite(item.id) ? 'text-pink-500 bg-pink-100' : 'text-gray-400 hover:text-pink-500 hover:bg-pink-50'}`}>
+                    <Heart size={24} fill={isFavorite(item.id) ? 'currentColor' : 'none'} />
+                </button>
+            </div>
+            <p className="text-sm text-gray-500 uppercase tracking-wider mb-3">{item.type} - {item.category}</p>
+            <div className="flex items-center mb-4">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} size={20} className={i < Math.round(item.rating) ? 'text-yellow-400' : 'text-gray-300'} fill="currentColor" />
+              ))}
+              <span className="ml-2 text-md text-gray-600">{item.rating} stars</span>
+            </div>
+            <p className="text-gray-700 text-lg mb-6 leading-relaxed">{item.description}</p>
+            {item.tags && item.tags.length > 0 && (
+                <div className="mb-6">
+                    <h4 className="font-semibold text-gray-700 mb-2">Tags:</h4>
+                    <div className="flex flex-wrap gap-2">
+                        {item.tags.map(tag => (
+                            <span key={tag} className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">{tag}</span>
+                        ))}
+                    </div>
+                </div>
+            )}
+          </div>
+          <div className="mt-auto">
+            <p className="text-4xl font-extrabold text-gray-900 mb-6">${item.price.toFixed(2)}</p>
+            <button
+              onClick={() => addToCart(item)}
+              className="w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white py-4 px-6 rounded-lg font-semibold text-lg hover:opacity-90 transition-opacity flex items-center justify-center space-x-2"
+            >
+              <ShoppingCart size={22} />
+              <span>Add to Cart</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      {/* You could add related items or reviews section here */}
+    </div>
+  );
+};
+
+const CartPage = ({ setCurrentPage }) => {
+  const { cart, removeFromCart, updateQuantity } = useContext(AppContext);
+  const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // Example tax and fees, in a real app, this would be calculated by the backend
+  const taxRate = 0.08; 
+  const serviceFee = subtotal > 0 ? 25.00 : 0;
+  const taxes = subtotal * taxRate;
+  const total = subtotal + taxes + serviceFee;
+
+  if (cart.length === 0) {
+    return (
+      <div className="container mx-auto px-6 py-12 text-center">
+        <ShoppingCart size={64} className="mx-auto text-gray-400 mb-6" />
+        <h1 className="text-3xl font-semibold text-gray-700 mb-4">Your Cart is Empty</h1>
+        <p className="text-gray-500 mb-8">Looks like you haven't added any services yet. Explore our offerings!</p>
+        <button onClick={() => setCurrentPage('services')} className="bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
+          Browse Services
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <h1 className="text-3xl font-extrabold text-gray-900 mb-8">Your Shopping Cart</h1>
+      <div className="lg:flex lg:items-start lg:space-x-12">
+        <div className="flex-1">
+          <ul role="list" className="divide-y divide-gray-200 border-b border-gray-200">
+            {cart.map((item) => (
+              <li key={item.id} className="py-6 flex">
+                <div className="flex-shrink-0 w-24 h-24 border border-gray-200 rounded-md overflow-hidden sm:w-32 sm:h-32">
+                  <img src={item.image} alt={item.name} className="w-full h-full object-center object-cover" onError={(e) => e.target.src = `https://placehold.co/128x128/CCCCCC/FFFFFF?text=No+Image`} />
+                </div>
+                <div className="ml-4 flex-1 flex flex-col sm:ml-6">
+                  <div>
+                    <div className="flex justify-between items-start">
+                      <h3 className="text-lg font-medium text-gray-900">
+                        <a href="#" onClick={(e) => {e.preventDefault(); setCurrentPage('itemDetail', { itemId: item.id });}} className="hover:text-purple-600">{item.name}</a>
+                      </h3>
+                      <button type="button" onClick={() => removeFromCart(item.id)} className="p-1 text-gray-400 hover:text-red-500 transition-colors">
+                        <Trash2 size={20} />
+                      </button>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-500">{item.type}</p>
+                    <p className="mt-1 text-lg font-semibold text-gray-900">${item.price.toFixed(2)}</p>
+                  </div>
+                  <div className="mt-4 flex items-center justify-between">
+                    <div className="flex items-center border border-gray-300 rounded-md">
+                      <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-l-md disabled:opacity-50" disabled={item.quantity <= 1}><MinusCircle size={16}/></button>
+                      <input type="number" value={item.quantity} readOnly className="w-12 text-center border-none focus:ring-0" />
+                      <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-r-md"><PlusCircle size={16}/></button>
+                    </div>
+                    <p className="text-lg font-medium text-purple-600">${(item.price * item.quantity).toFixed(2)}</p>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Order summary */}
+        <div className="mt-10 lg:mt-0 lg:w-96 bg-gray-50 p-8 rounded-lg shadow-md">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Order Summary</h2>
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Subtotal</span>
+              <span className="font-medium text-gray-900">${subtotal.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Service Fee</span>
+              <span className="font-medium text-gray-900">${serviceFee.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Taxes ({(taxRate * 100).toFixed(0)}%)</span>
+              <span className="font-medium text-gray-900">${taxes.toFixed(2)}</span>
+            </div>
+            <div className="border-t border-gray-200 pt-4 mt-4 flex justify-between text-lg font-bold text-gray-900">
+              <span>Total</span>
+              <span>${total.toFixed(2)}</span>
+            </div>
+          </div>
+          <button
+            onClick={() => setCurrentPage('checkout')}
+            className="mt-8 w-full bg-gradient-to-r from-purple-600 to-pink-500 text-white py-3 px-4 rounded-lg font-semibold text-lg hover:opacity-90 transition-opacity flex items-center justify-center space-x-2"
+          >
+            <CreditCard size={20}/>
+            <span>Proceed to Checkout</span>
+          </button>
+          <button onClick={() => setCurrentPage('services')} className="mt-4 w-full text-purple-600 hover:text-purple-800 font-medium py-2">
+            Or Continue Shopping
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const FavoritesPage = ({ setCurrentPage }) => {
+    const { favorites, addToCart, toggleFavorite, isFavorite } = useContext(AppContext);
+
+    if (favorites.length === 0) {
+        return (
+          <div className="container mx-auto px-6 py-12 text-center">
+            <Heart size={64} className="mx-auto text-gray-400 mb-6" />
+            <h1 className="text-3xl font-semibold text-gray-700 mb-4">Your Favorites is Empty</h1>
+            <p className="text-gray-500 mb-8">You haven't added any items to your favorites yet. Start exploring!</p>
+            <button onClick={() => setCurrentPage('services')} className="bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
+              Browse Services
+            </button>
+          </div>
+        );
+    }
+    
+    return (
+        <div className="container mx-auto px-6 py-8">
+            <h1 className="text-4xl font-bold text-gray-800 mb-8">Your Favorites</h1>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {favorites.map(service => (
+                    <ServiceCard 
+                        key={service.id} 
+                        service={service} 
+                        setCurrentPage={setCurrentPage} 
+                        addToCart={addToCart} 
+                        toggleFavorite={toggleFavorite} 
+                        isFavorite={isFavorite(service.id)} 
+                    />
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const CheckoutPage = ({ setCurrentPage }) => {
+    const { cart, placeOrder, user } = useContext(AppContext);
+    const [formData, setFormData] = useState({
+        fullName: user ? user.email.split('@')[0] : '',
+        contactEmail: user ? user.email : '',
+        contactPhone: '',
+        eventDate: '',
+        venue: '',
+        paymentMethod: 'creditCard', // 'creditCard', 'paypal'
+        // card details (conceptual, don't store real card info)
+        cardNumber: '',
+        cardExpiry: '',
+        cardCVC: '',
+    });
+    const [orderPlaced, setOrderPlaced] = useState(null);
+
+    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const taxRate = 0.08; 
+    const serviceFee = subtotal > 0 ? 25.00 : 0;
+    const taxes = subtotal * taxRate;
+    const total = subtotal + taxes + serviceFee;
+
+    const handleChange = (e) => {
+        setFormData({ ...formData, [e.target.name]: e.target.value });
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        if (!formData.eventDate || !formData.venue || !formData.contactEmail || !formData.contactPhone) {
+            alert("Please fill in all required event details."); // Replace with modal
+            return;
+        }
+        // Basic validation for demo
+        const orderDetails = {
+            items: cart,
+            total,
+            customerDetails: {
+                fullName: formData.fullName,
+                email: formData.contactEmail,
+                phone: formData.contactPhone,
+            },
+            eventDate: formData.eventDate,
+            venue: formData.venue,
+            paymentMethod: formData.paymentMethod,
+        };
+        const newOrder = placeOrder(orderDetails);
+        setOrderPlaced(newOrder);
+        // In a real app, you would redirect to an order confirmation page or dashboard.
+        // For now, just show a message.
+    };
+
+    if (orderPlaced) {
+        return (
+            <div className="container mx-auto px-6 py-12 text-center">
+                <CheckCircle size={64} className="mx-auto text-green-500 mb-6" />
+                <h1 className="text-3xl font-semibold text-green-600 mb-4">Order Placed Successfully!</h1>
+                <p className="text-gray-700 mb-2">Your Order ID: <span className="font-bold">{orderPlaced.id}</span></p>
+                <p className="text-gray-600 mb-8">Thank you for choosing EleganceEvents. We will contact you shortly regarding your event details.</p>
+                <div className="space-x-4">
+                    <button onClick={() => setCurrentPage('home')} className="bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
+                        Back to Home
+                    </button>
+                    <button onClick={() => setCurrentPage(user.role === 'admin' ? 'adminDashboard' : 'customerDashboard')} className="bg-gray-200 text-gray-700 py-3 px-6 rounded-lg font-semibold hover:bg-gray-300 transition-colors">
+                        View My Orders
+                    </button>
+                </div>
+            </div>
+        );
+    }
+    
+    if (cart.length === 0 && !orderPlaced) {
+        return (
+          <div className="container mx-auto px-6 py-12 text-center">
+            <ShoppingCart size={64} className="mx-auto text-gray-400 mb-6" />
+            <h1 className="text-3xl font-semibold text-gray-700 mb-4">Your Cart is Empty</h1>
+            <p className="text-gray-500 mb-8">You need items in your cart to proceed to checkout.</p>
+            <button onClick={() => setCurrentPage('services')} className="bg-purple-600 text-white py-3 px-6 rounded-lg font-semibold hover:bg-purple-700 transition-colors">
+              Browse Services
+            </button>
+          </div>
+        );
+    }
+
+    return (
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-12 bg-gray-50">
+            <h1 className="text-3xl font-extrabold text-gray-900 mb-8">Checkout</h1>
+            <form onSubmit={handleSubmit} className="lg:flex lg:items-start lg:space-x-12">
+                {/* Customer & Event Details */}
+                <div className="flex-1 bg-white p-8 rounded-lg shadow-md mb-8 lg:mb-0">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-6 border-b pb-4">Event & Contact Information</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <InputField Icon={User} label="Full Name" name="fullName" value={formData.fullName} onChange={handleChange} required />
+                        <InputField Icon={Mail} label="Contact Email" name="contactEmail" type="email" value={formData.contactEmail} onChange={handleChange} required />
+                        <InputField Icon={Phone} label="Contact Phone" name="contactPhone" type="tel" value={formData.contactPhone} onChange={handleChange} required />
+                        <InputField Icon={Calendar} label="Event Date" name="eventDate" type="date" value={formData.eventDate} onChange={handleChange} required 
+                            min={new Date().toISOString().split('T')[0]} // Prevent past dates
+                        />
+                        <div className="md:col-span-2">
+                            <InputField Icon={MapPin} label="Event Venue / Address" name="venue" value={formData.venue} onChange={handleChange} required multiline={true} />
+                        </div>
+                    </div>
+
+                    <h2 className="text-xl font-semibold text-gray-900 mt-10 mb-6 border-b pb-4">Payment Details</h2>
+                    <p className="text-sm text-gray-600 mb-4">This is a conceptual payment section. No real payment will be processed.</p>
+                    {/* Conceptual Payment Fields */}
+                    <div className="space-y-4">
+                        <select name="paymentMethod" value={formData.paymentMethod} onChange={handleChange} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                            <option value="creditCard">Credit Card</option>
+                            <option value="paypal">PayPal (Conceptual)</option>
+                        </select>
+                        {formData.paymentMethod === 'creditCard' && (
+                            <>
+                                <InputField Icon={CreditCard} label="Card Number" name="cardNumber" placeholder="•••• •••• •••• ••••" value={formData.cardNumber} onChange={handleChange} />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <InputField label="Expiry Date (MM/YY)" name="cardExpiry" placeholder="MM/YY" value={formData.cardExpiry} onChange={handleChange} />
+                                    <InputField label="CVC" name="cardCVC" placeholder="•••" value={formData.cardCVC} onChange={handleChange} />
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+
+                {/* Order Summary */}
+                <div className="lg:w-96 bg-white p-8 rounded-lg shadow-md">
+                    <h2 className="text-xl font-semibold text-gray-900 mb-6">Your Order</h2>
+                    <ul className="divide-y divide-gray-200 mb-6">
+                        {cart.map(item => (
+                            <li key={item.id} className="py-3 flex justify-between items-center text-sm">
+                                <div>
+                                    <p className="font-medium text-gray-800">{item.name} (x{item.quantity})</p>
+                                    <p className="text-gray-500">${item.price.toFixed(2)} each</p>
+                                </div>
+                                <p className="font-medium text-gray-800">${(item.price * item.quantity).toFixed(2)}</p>
+                            </li>
+                        ))}
+                    </ul>
+                    <div className="space-y-2 border-t pt-4">
+                        <div className="flex justify-between text-sm text-gray-600"><span>Subtotal</span><span className="font-medium text-gray-900">${subtotal.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-sm text-gray-600"><span>Service Fee</span><span className="font-medium text-gray-900">${serviceFee.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-sm text-gray-600"><span>Taxes</span><span className="font-medium text-gray-900">${taxes.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-lg font-bold text-gray-900 pt-2 border-t mt-2"><span>Total</span><span>${total.toFixed(2)}</span></div>
+                    </div>
+                    <button
+                        type="submit"
+                        className="mt-8 w-full bg-gradient-to-r from-green-500 to-teal-500 text-white py-3 px-4 rounded-lg font-semibold text-lg hover:opacity-90 transition-opacity flex items-center justify-center space-x-2"
+                    >
+                        <CheckCircle size={20}/>
+                        <span>Place Order & Pay ${total.toFixed(2)}</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+};
+
+const InputField = ({ Icon, label, name, type = "text", value, onChange, placeholder, required, multiline = false }) => (
+    <div>
+        <label htmlFor={name} className="block text-sm font-medium text-gray-700 mb-1">{label}{required && <span className="text-red-500">*</span>}</label>
+        <div className="relative">
+            {Icon && <Icon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />}
+            {multiline ? (
+                <textarea
+                    id={name}
+                    name={name}
+                    value={value}
+                    onChange={onChange}
+                    placeholder={placeholder || label}
+                    required={required}
+                    rows={3}
+                    className={`w-full p-3 ${Icon ? 'pl-10' : ''} border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-shadow shadow-sm`}
+                />
+            ) : (
+                <input
+                    type={type}
+                    id={name}
+                    name={name}
+                    value={value}
+                    onChange={onChange}
+                    placeholder={placeholder || label}
+                    required={required}
+                    className={`w-full p-3 ${Icon ? 'pl-10' : ''} border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-shadow shadow-sm`}
+                />
+            )}
+        </div>
+    </div>
+);
+
+
+const AuthPage = ({ setCurrentPage, isLogin }) => {
+  const { login } = useContext(AppContext);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState('customer'); // For registration
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setError('');
+    // Basic validation
+    if (!email || !password) {
+        setError('Email and password are required.');
+        return;
+    }
+    if (!isLogin && !role) {
+        setError('Please select a role for registration.');
+        return;
+    }
+
+    // Mock authentication
+    if (isLogin) {
+      if (email === 'admin@example.com' && password === 'admin123') {
+        login(email, 'admin');
+        setCurrentPage('adminDashboard');
+      } else if (email === 'customer@example.com' && password === 'cust123') {
+        login(email, 'customer');
+        setCurrentPage('home');
+      } else {
+        // Simulate any other login as customer for demo
+        login(email, 'customer');
+        setCurrentPage('home');
+        // setError('Invalid credentials. Try admin@example.com or customer@example.com with passwords admin123 or cust123 respectively.');
+      }
+    } else { // Registration
+      console.log('Registering:', { email, password, role });
+      login(email, role); // Log in immediately after registration for demo
+      setCurrentPage(role === 'admin' ? 'adminDashboard' : 'home');
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-600 to-pink-500 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-xl shadow-2xl">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            {isLogin ? 'Sign in to your account' : 'Create your account'}
+          </h2>
+        </div>
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          {error && <p className="text-red-500 text-sm text-center bg-red-100 p-3 rounded-md">{error}</p>}
+          <InputField Icon={Mail} label="Email address" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <InputField Icon={User} label="Password" name="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          
+          {!isLogin && (
+            <div>
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-1">Register as:</label>
+              <select id="role" name="role" value={role} onChange={(e) => setRole(e.target.value)} className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500">
+                <option value="customer">Customer</option>
+                <option value="admin">Admin (for demo purposes)</option>
+              </select>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between">
+            {isLogin && (
+              <div className="text-sm">
+                <a href="#" onClick={(e) => {e.preventDefault(); alert("Forgot password functionality not implemented.");}} className="font-medium text-purple-600 hover:text-purple-500">
+                  Forgot your password?
+                </a>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <button
+              type="submit"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 transition-colors"
+            >
+              {isLogin ? 'Sign in' : 'Register'}
+            </button>
+          </div>
+        </form>
+        <div className="text-sm text-center">
+          {isLogin ? (
+            <p>Don't have an account? <button onClick={() => setCurrentPage('register')} className="font-medium text-purple-600 hover:text-purple-500">Register here</button></p>
+          ) : (
+            <p>Already have an account? <button onClick={() => setCurrentPage('login')} className="font-medium text-purple-600 hover:text-purple-500">Sign in here</button></p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const AdminDashboardPage = ({ setCurrentPage }) => {
+  const { adminNotifications, markNotificationRead, mockOrders } = useContext(AppContext);
+  const [orders, setOrders] = useState(mockOrders); // Local state for orders to manage accept/reject
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState('');
+
+  const handleOrderStatus = (orderId, newStatus) => {
+    setOrders(prevOrders => prevOrders.map(o => o.id === orderId ? {...o, status: newStatus} : o));
+    // In a real app, this would also update the backend
+    if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder(prev => ({...prev, status: newStatus}));
+    }
+  };
+
+  const openOrderDetails = (orderId) => {
+    const order = orders.find(o => o.id === orderId);
+    setSelectedOrder(order);
+    // Simulate loading chat messages for this order
+    setChatMessages([
+        {id:1, sender: order.customerName, text: "Hello! I'm excited about my order.", time: "10:30 AM"},
+        {id:2, sender: "Admin", text: "Hi there! We've received your order and are reviewing it.", time: "10:32 AM"}
+    ]);
+  };
+  
+  const handleSendChatMessage = () => {
+    if (chatInput.trim() === '' || !selectedOrder) return;
+    const newMessage = { id: Date.now(), sender: 'Admin', text: chatInput, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+    setChatMessages(prev => [...prev, newMessage]);
+    setChatInput('');
+    // In real app, send via SignalR to customer
+  };
+
+  // Group notifications by type for display
+  const newOrderNotifications = adminNotifications.filter(n => n.type === 'new_order' && !n.read);
+
+  return (
+    <div className="container mx-auto px-6 py-8">
+      <h1 className="text-3xl font-bold text-gray-800 mb-6">Admin Dashboard</h1>
+      
+      {/* Notifications Section - Uber Style */}
+      {newOrderNotifications.length > 0 && (
+        <div className="mb-8 p-6 bg-yellow-100 border-l-4 border-yellow-500 rounded-md shadow-lg">
+          <div className="flex items-center mb-3">
+            <Bell size={24} className="text-yellow-600 mr-3" />
+            <h2 className="text-xl font-semibold text-yellow-700">New Order Alerts!</h2>
+          </div>
+          <ul className="space-y-3">
+            {newOrderNotifications.map(notif => (
+              <li key={notif.id} className="p-3 bg-white rounded-md shadow-sm flex justify-between items-center hover:bg-yellow-50 transition-colors">
+                <span className="text-gray-700">{notif.message}</span>
+                <button 
+                    onClick={() => { openOrderDetails(notif.orderId); markNotificationRead(notif.id); }} 
+                    className="text-sm bg-yellow-500 text-white px-3 py-1 rounded-md hover:bg-yellow-600 transition-colors"
+                >
+                    View Order
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Main Content Area - Orders and Details */}
+      <div className="lg:flex lg:space-x-8">
+        {/* Orders List */}
+        <div className="lg:w-1/2 bg-white p-6 rounded-lg shadow-md mb-8 lg:mb-0">
+          <h2 className="text-2xl font-semibold text-gray-700 mb-4">Manage Orders</h2>
+          {orders.length === 0 ? <p>No orders yet.</p> : (
+            <div className="space-y-4">
+              {orders.map(order => (
+                <div key={order.id} className={`p-4 rounded-lg shadow transition-all ${order.status === 'Accepted' ? 'bg-green-50 border-green-500' : order.status === 'Rejected' ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-gray-300'} border-l-4`}>
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-lg font-semibold text-purple-700">Order #{order.id}</h3>
+                    <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                        order.status === 'Pending' ? 'bg-yellow-200 text-yellow-800' :
+                        order.status === 'Accepted' ? 'bg-green-200 text-green-800' :
+                        'bg-red-200 text-red-800'
+                    }`}>{order.status}</span>
+                  </div>
+                  <p className="text-sm text-gray-600">Customer: {order.customerName}</p>
+                  <p className="text-sm text-gray-600">Total: ${order.total.toFixed(2)}</p>
+                  <p className="text-sm text-gray-600">Date: {order.date} | Venue: {order.venue}</p>
+                  <div className="mt-3 flex space-x-2">
+                    <button onClick={() => openOrderDetails(order.id)} className="text-sm bg-blue-500 text-white px-3 py-1 rounded-md hover:bg-blue-600 transition-colors flex items-center space-x-1"><Eye size={14}/><span>Details</span></button>
+                    {order.status === 'Pending' && (
+                      <>
+                        <button onClick={() => handleOrderStatus(order.id, 'Accepted')} className="text-sm bg-green-500 text-white px-3 py-1 rounded-md hover:bg-green-600 transition-colors flex items-center space-x-1"><CheckCircle size={14}/><span>Accept</span></button>
+                        <button onClick={() => handleOrderStatus(order.id, 'Rejected')} className="text-sm bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors flex items-center space-x-1"><XCircle size={14}/><span>Reject</span></button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Selected Order Details & Chat */}
+        <div className="lg:w-1/2 bg-white p-6 rounded-lg shadow-md">
+          {selectedOrder ? (
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-700 mb-1">Order Details: #{selectedOrder.id}</h2>
+              <p className={`mb-4 px-3 py-1 inline-block text-xs font-semibold rounded-full ${
+                    selectedOrder.status === 'Pending' ? 'bg-yellow-200 text-yellow-800' :
+                    selectedOrder.status === 'Accepted' ? 'bg-green-200 text-green-800' :
+                    'bg-red-200 text-red-800'
+                }`}>{selectedOrder.status}</p>
+
+              <div className="space-y-2 text-sm text-gray-700 mb-6 border-b pb-4">
+                <p><strong>Customer:</strong> {selectedOrder.customerName}</p>
+                <p><strong>Contact:</strong> {selectedOrder.customerContact} / {selectedOrder.customerPhone}</p>
+                <p><strong>Event Date:</strong> {selectedOrder.date}</p>
+                <p><strong>Venue:</strong> {selectedOrder.venue}</p>
+                <p><strong>Total Bill:</strong> ${selectedOrder.total.toFixed(2)}</p>
+              </div>
+              
+              <h4 className="font-semibold text-gray-600 mb-2">Items:</h4>
+              <ul className="list-disc list-inside text-sm text-gray-600 mb-6">
+                {selectedOrder.items.map(item => (
+                  <li key={item.id}>{item.name} (x{item.quantity}) - ${item.price.toFixed(2)} each</li>
+                ))}
+              </ul>
+
+              {/* Chat Section */}
+              {selectedOrder.status === 'Accepted' && (
+                <div className="mt-6 border-t pt-4">
+                    <h3 className="text-xl font-semibold text-gray-700 mb-3 flex items-center"><MessageSquare size={20} className="mr-2 text-purple-600"/>Chat with {selectedOrder.customerName}</h3>
+                    <div className="h-48 overflow-y-auto bg-gray-50 p-3 rounded-md border mb-3 space-y-2">
+                        {chatMessages.map(msg => (
+                            <div key={msg.id} className={`p-2 rounded-lg max-w-xs ${msg.sender === 'Admin' ? 'bg-purple-500 text-white ml-auto' : 'bg-gray-200 text-gray-800'}`}>
+                                <p className="text-sm">{msg.text}</p>
+                                <p className={`text-xs mt-1 ${msg.sender === 'Admin' ? 'text-purple-200 text-right' : 'text-gray-500'}`}>{msg.time}</p>
+                            </div>
+                        ))}
+                        {chatMessages.length === 0 && <p className="text-sm text-gray-400 text-center">No messages yet. Start the conversation!</p>}
+                    </div>
+                    <div className="flex">
+                        <input 
+                            type="text" 
+                            value={chatInput} 
+                            onChange={(e) => setChatInput(e.target.value)}
+                            placeholder="Type your message..." 
+                            className="flex-grow p-2 border rounded-l-md focus:ring-purple-500 focus:border-purple-500"
+                            onKeyPress={(e) => e.key === 'Enter' && handleSendChatMessage()}
+                        />
+                        <button onClick={handleSendChatMessage} className="bg-purple-600 text-white px-4 py-2 rounded-r-md hover:bg-purple-700">Send</button>
+                    </div>
+                    <button className="mt-2 text-sm text-blue-500 hover:underline flex items-center">
+                        <Phone size={14} className="mr-1"/> Initiate Call (Conceptual)
+                    </button>
+                </div>
+              )}
+
+            </div>
+          ) : (
+            <div className="text-center text-gray-500 py-10">
+              <Info size={48} className="mx-auto mb-4"/>
+              <p>Select an order from the list to view details and manage it.</p>
+              <p>New order notifications will appear at the top.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const CustomerDashboardPage = ({ setCurrentPage }) => {
+    const { user, mockOrders } = useContext(AppContext); // Assuming orders are globally available or fetched
+    const [myOrders, setMyOrders] = useState([]);
+    const [selectedOrderForChat, setSelectedOrderForChat] = useState(null);
+    const [chatMessages, setChatMessages] = useState([]);
+    const [chatInput, setChatInput] = useState('');
+
+
+    useEffect(() => {
+        if (user) {
+            // Filter orders that belong to the current customer
+            // In a real app, you'd fetch this from an API: /api/orders/my-orders
+            const customerOrders = mockOrders.filter(order => order.customerId === user.email || order.customerName === user.email.split('@')[0]);
+            setMyOrders(customerOrders);
+        }
+    }, [user, mockOrders]);
+
+    const openChat = (order) => {
+        setSelectedOrderForChat(order);
+        // Simulate loading chat messages for this order (customer view)
+        setChatMessages([
+            {id:1, sender: order.customerName, text: "Hello! I'm excited about my order.", time: "10:30 AM"},
+            {id:2, sender: "Admin", text: "Hi there! We've received your order and are reviewing it.", time: "10:32 AM"},
+            {id:3, sender: order.customerName, text: "Great! Any updates on the 'Enchanted Forest Theme' setup?", time: "10:35 AM"}
+        ]);
+    };
+
+    const handleSendChatMessage = () => {
+        if (chatInput.trim() === '' || !selectedOrderForChat) return;
+        const newMessage = { id: Date.now(), sender: selectedOrderForChat.customerName, text: chatInput, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+        setChatMessages(prev => [...prev, newMessage]);
+        setChatInput('');
+        // In real app, send via SignalR to admin
+    };
+
+    if (!user) {
+        return <div className="container mx-auto p-8 text-center">Please log in to view your dashboard.</div>;
+    }
+
+    return (
+        <div className="container mx-auto px-6 py-8">
+            <h1 className="text-3xl font-bold text-gray-800 mb-6">My Dashboard</h1>
+            <div className="bg-white p-6 rounded-lg shadow-md">
+                <h2 className="text-2xl font-semibold text-gray-700 mb-4">My Orders</h2>
+                {myOrders.length === 0 ? (
+                    <p className="text-gray-600">You haven't placed any orders yet.</p>
+                ) : (
+                    <div className="space-y-6">
+                        {myOrders.map(order => (
+                            <div key={order.id} className="p-4 border rounded-lg shadow-sm bg-gray-50">
+                                <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-2">
+                                    <h3 className="text-lg font-semibold text-purple-700">Order #{order.id}</h3>
+                                    <span className={`mt-1 sm:mt-0 px-3 py-1 text-xs font-semibold rounded-full ${
+                                        order.status === 'Pending' ? 'bg-yellow-200 text-yellow-800' :
+                                        order.status === 'Accepted' ? 'bg-green-200 text-green-800' :
+                                        'bg-red-200 text-red-800'
+                                    }`}>{order.status}</span>
+                                </div>
+                                <p className="text-sm text-gray-600"><strong>Date:</strong> {order.date}</p>
+                                <p className="text-sm text-gray-600"><strong>Venue:</strong> {order.venue}</p>
+                                <p className="text-sm text-gray-600"><strong>Total:</strong> ${order.total.toFixed(2)}</p>
+                                <h4 className="text-sm font-medium text-gray-700 mt-2">Items:</h4>
+                                <ul className="list-disc list-inside text-sm text-gray-600 ml-4">
+                                    {order.items.map(item => (
+                                        <li key={item.id}>{item.name} (x{item.quantity})</li>
+                                    ))}
+                                </ul>
+                                {order.status === 'Accepted' && (
+                                    <button 
+                                        onClick={() => openChat(order)} 
+                                        className="mt-3 text-sm bg-purple-500 text-white px-3 py-1.5 rounded-md hover:bg-purple-600 transition-colors flex items-center space-x-1"
+                                    >
+                                        <MessageSquare size={14}/><span>Chat with Admin</span>
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Chat Modal (Conceptual) */}
+            {selectedOrderForChat && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-semibold">Chat for Order #{selectedOrderForChat.id}</h3>
+                            <button onClick={() => setSelectedOrderForChat(null)} className="text-gray-500 hover:text-gray-700">&times;</button>
+                        </div>
+                        <div className="h-64 overflow-y-auto bg-gray-100 p-3 rounded-md border mb-3 space-y-2">
+                            {chatMessages.map(msg => (
+                                <div key={msg.id} className={`p-2 rounded-lg max-w-xs ${msg.sender === 'Admin' ? 'bg-gray-300 text-gray-800' : 'bg-blue-500 text-white ml-auto'}`}>
+                                    <p className="text-sm">{msg.text}</p>
+                                    <p className={`text-xs mt-1 ${msg.sender === 'Admin' ? 'text-gray-500' : 'text-blue-200 text-right'}`}>{msg.time}</p>
+                                </div>
+                            ))}
+                             {chatMessages.length === 0 && <p className="text-sm text-gray-400 text-center">No messages yet.</p>}
+                        </div>
+                        <div className="flex">
+                            <input 
+                                type="text" 
+                                value={chatInput} 
+                                onChange={(e) => setChatInput(e.target.value)}
+                                placeholder="Your message..." 
+                                className="flex-grow p-2 border rounded-l-md focus:ring-blue-500 focus:border-blue-500"
+                                onKeyPress={(e) => e.key === 'Enter' && handleSendChatMessage()}
+                            />
+                            <button onClick={handleSendChatMessage} className="bg-blue-500 text-white px-4 py-2 rounded-r-md hover:bg-blue-600">Send</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// ChevronLeft Icon (if not available in lucide-react or for simplicity)
+const ChevronLeft = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <polyline points="15 18 9 12 15 6"></polyline>
+  </svg>
+);
+// Info Icon (if not available in lucide-react or for simplicity)
+const Info = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <circle cx="12" cy="12" r="10"></circle>
+    <line x1="12" y1="16" x2="12" y2="12"></line>
+    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+  </svg>
+);
+
+
+// Main App Component
+function App() {
+  const [currentPage, setCurrentPage] = useState('home'); // home, services, itemDetail, cart, checkout, login, register, adminDashboard, customerDashboard, favorites
+  const [pageProps, setPageProps] = useState({}); // To pass props like itemId or initialFilter
+
+  const navigateTo = (page, props = {}) => {
+    setPageProps(props);
+    setCurrentPage(page);
+    window.scrollTo(0, 0); // Scroll to top on page change
+  };
+
+  let pageComponent;
+  switch (currentPage) {
+    case 'home':
+      pageComponent = <HomePage setCurrentPage={navigateTo} />;
+      break;
+    case 'services':
+      pageComponent = <ServicesPage setCurrentPage={navigateTo} initialFilter={pageProps.filter} />;
+      break;
+    case 'itemDetail':
+      pageComponent = <ItemDetailPage setCurrentPage={navigateTo} itemId={pageProps.itemId} />;
+      break;
+    case 'cart':
+      pageComponent = <CartPage setCurrentPage={navigateTo} />;
+      break;
+    case 'checkout':
+      pageComponent = <CheckoutPage setCurrentPage={navigateTo} />;
+      break;
+    case 'login':
+      pageComponent = <AuthPage setCurrentPage={navigateTo} isLogin={true} />;
+      break;
+    case 'register':
+      pageComponent = <AuthPage setCurrentPage={navigateTo} isLogin={false} />;
+      break;
+    case 'adminDashboard':
+      pageComponent = <AdminDashboardPage setCurrentPage={navigateTo} />;
+      break;
+    case 'customerDashboard':
+      pageComponent = <CustomerDashboardPage setCurrentPage={navigateTo} />;
+      break;
+    case 'favorites':
+      pageComponent = <FavoritesPage setCurrentPage={navigateTo} />;
+      break;
+    default:
+      pageComponent = <HomePage setCurrentPage={navigateTo} />;
+  }
+
+  return (
+    <AppProvider>
+      <div className="flex flex-col min-h-screen font-sans">
+        <Navbar setCurrentPage={navigateTo} />
+        <main className="flex-grow">
+          {pageComponent}
+        </main>
+        <Footer />
+      </div>
+    </AppProvider>
+  );
+}
+
+export default App;
